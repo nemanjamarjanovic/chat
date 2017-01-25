@@ -5,17 +5,19 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
+import org.nem.chat.protocol.model.Header;
+import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.User;
-import org.nem.chat.protocol.service.Decoder;
-import org.nem.chat.protocol.service.Encoder;
+import org.nem.chat.protocol.model.UserList;
+import org.nem.chat.protocol.service.ByteMessage;
+import org.nem.chat.protocol.service.HeaderBuilder;
+import org.nem.chat.protocol.service.MessageBuilder;
 
 /**
  *
@@ -24,7 +26,7 @@ import org.nem.chat.protocol.service.Encoder;
 public class Client {
 
     private static final Logger LOG = Logger.getLogger("SERVER");
-    public static final Queue<String> OUTBOX = new ConcurrentLinkedQueue<>();
+    public final Queue<String> OUTBOX = new ConcurrentLinkedQueue<>();
 
     private final Long id;
     private final BufferedReader in;
@@ -46,44 +48,64 @@ public class Client {
     public void receive() {
         String message;
         try {
+
             while ((message = this.in.readLine()) != null) {
+                ByteMessage byteMessage = ByteMessage.fromBytes(message.getBytes());
+                Message received = byteMessage.getMessage();
+                LOG.info(received.toString());
+                Header header;
+                Message response;
+                ByteMessage byteResponse;
 
-                Map<String, Object> decoded = new Decoder().decodeMap(message);
-                Map<String, Object> response = new HashMap();
+                if (received.getType().equals("Server")) {
+                    switch (received.getHeader().getAction()) {
 
-                switch ((String) decoded.get("action")) {
+                        case "login":
+                            this.name = received.getHeader().getName();
+                            header = HeaderBuilder.builder().action("login")
+                                    .userid(this.id.toString()).build();
+                            response = MessageBuilder.builder().header(header).build();
+                            byteResponse = ByteMessage.fromMessage(response);
+                            this.out.println(new String(byteResponse.getBytes()));
+                            LOG.info(response.toString());
+                            break;
 
-                    case "login":
-                        this.name = (String) decoded.get("name");
-                        this.publicKey = (String) decoded.get("publicKey");
-                        response.put("action", "login");
-                        response.put("id", this.id.toString());
-                        this.out.println(new Encoder().encodeMap(response));
-                        break;
+                        case "logout":
+                            ChatServer.CLIENTS.remove(
+                                    Long.parseLong(received.getHeader().getUserid()));
+                            break;
 
-                    case "logout":
-                        ChatServer.CLIENTS.remove((Long) decoded.get("id"));
-                        break;
+                        case "users":
+                            List<User> list = ChatServer.CLIENTS.keySet().stream()
+                                    .map(k -> ChatServer.CLIENTS.get(k))
+                                    .filter(client -> client.name != null)
+                                    .map(client -> new User(client.id, client.name, client.publicKey))
+                                    .collect(Collectors.toList());
+                            LOG.info(list.toString());
+                            header = HeaderBuilder.builder().action("users").build();
+                            response = MessageBuilder.builder().header(header)
+                                    .body(UserList.to(new UserList(list))).build();
+                            byteResponse = ByteMessage.fromMessage(response);
+                            this.out.println(new String(byteResponse.getBytes()));
+                            break;
 
-                    case "users":
-                        List<User> list = ChatServer.CLIENTS.keySet().stream()
-                                .map(k -> ChatServer.CLIENTS.get(k))
-                                .filter(client -> client.getName() != null)
-                                .map(client -> new User(client.id, client.name, client.publicKey))
-                                .collect(Collectors.toList());
-                        response.put("action", "users");
-                        response.put("users", list);
-                        this.out.println(new Encoder().encodeMap(response));
-                        break;
+                        case "chat":
 
-                    default:
-                        ChatServer.INBOX.add(message);
-                        break;
+                            //ChatServer.INBOX.add(received);
+                            break;
+
+                        default:
+                            break;
+                    }
+                } else {
+                    ChatServer.CLIENTS.get(received.getTo()).OUTBOX
+                            .add(new String(byteMessage.getBytes()));
                 }
             }
-        } catch (IOException e) {
+        } catch (IOException | ClassNotFoundException e) {
             LOG.severe(e.getMessage());
         }
+
     }
 
     public void send() {
@@ -95,14 +117,6 @@ public class Client {
 
     public Long getId() {
         return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getPublicKey() {
-        return publicKey;
     }
 
 }

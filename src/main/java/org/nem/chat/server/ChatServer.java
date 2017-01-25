@@ -4,9 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Map;
-import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
@@ -17,7 +15,6 @@ import java.util.logging.Logger;
 public class ChatServer {
 
     private static final Logger LOG = Logger.getLogger("SERVER");
-    public static final Queue<String> INBOX = new ConcurrentLinkedQueue<>();
     public static final Map<Long, Client> CLIENTS = new ConcurrentHashMap<>();
 
     public void listen() {

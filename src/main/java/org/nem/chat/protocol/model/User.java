@@ -1,10 +1,14 @@
 package org.nem.chat.protocol.model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author nemanja.marjanovic
  */
-public class User {
+public class User implements Serializable {
+
+    private static final long serialVersionUID = -8554476094078305548L;
 
     private Long id;
     private String name;
@@ -41,6 +45,11 @@ public class User {
 
     public void setPublicKey(String publicKey) {
         this.publicKey = publicKey;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" + "id=" + id + ", name=" + name + ", publicKey=" + publicKey + '}';
     }
 
 }

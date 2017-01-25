@@ -17,10 +17,15 @@ import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.nem.chat.client.model.Session;
-import org.nem.chat.client.model.SymetricDetails;
+import org.nem.chat.protocol.model.Header;
+import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.User;
+import org.nem.chat.protocol.model.UserList;
+import org.nem.chat.protocol.service.ByteMessage;
 import org.nem.chat.protocol.service.Decoder;
 import org.nem.chat.protocol.service.Encoder;
+import org.nem.chat.protocol.service.HeaderBuilder;
+import org.nem.chat.protocol.service.MessageBuilder;
 
 /**
  *
@@ -72,27 +77,35 @@ public class Chat {
 
     public void login(final String name) {
         this.identity.setName(name);
-        Map<String, String> message = new HashMap();
-        message.put("action", "login");
-        message.put("name", this.identity.getName());
-        message.put("key", this.identity.getPublicKey());
-        this.sendMessage(message);
+//        Map<String, String> message = new HashMap();
+//        message.put("action", "login");
+//        message.put("name", );
+//        message.put("key", this.identity.getPublicKey());
+
+        Header header = HeaderBuilder.builder().action("login")
+                .name(this.identity.getName())
+                .publickey(this.identity.getPublicKey()).build();
+        Message message = MessageBuilder.builder().type("Server")
+                .header(header).build();
+        this.sendMessage2(message);
     }
 
     public void logout() {
         if (isLogged()) {
-            Map<String, String> message = new HashMap();
-            message.put("action", "logout");
-            message.put("id", this.identity.getId().toString());
-            this.sendMessage(message);
+            Header header = HeaderBuilder.builder().action("logout")
+                    .name(this.identity.getName()).build();
+            Message message = MessageBuilder.builder().type("Server")
+                    .header(header).build();
+            this.sendMessage2(message);
             identity.setId(null);
         }
     }
 
     public List<User> getAvailableBuddies() {
-        Map<String, String> message = new HashMap();
-        message.put("action", "users");
-        this.sendMessage(message);
+        Header header = HeaderBuilder.builder().action("users").build();
+        Message message = MessageBuilder.builder().type("Server")
+                .header(header).build();
+        this.sendMessage2(message);
         return this.buddies.keySet()
                 .stream()
                 .filter(k -> !k.equals(this.identity.getId()))
@@ -168,71 +181,82 @@ public class Chat {
         this.out.println(this.encoder.encodeMap(message));
     }
 
-    private void listenForMessages() {
-        String fromServer;
+    private void sendMessage2(final Message message) {
+        LOG.info(message.toString());
         try {
-            while ((fromServer = in.readLine()) != null) {
-                this.processIncomingMessage(fromServer);
-            }
+            ByteMessage bm = ByteMessage.fromMessage(message);
+            this.out.println(new String(bm.getBytes()));
         } catch (IOException ex) {
             LOG.severe(ex.getMessage());
         }
     }
 
-    private void processIncomingMessage(final String message) {
-        Map<String, Object> decoded = decoder.decodeMap(message);
-        LOG.info(decoded.toString());
+    private void listenForMessages() {
+        String fromServer;
+        try {
+            while ((fromServer = in.readLine()) != null) {
+                this.processIncomingMessage(ByteMessage.fromBytes(fromServer.getBytes()));
+            }
+        } catch (IOException | ClassNotFoundException ex) {
+            LOG.severe(ex.getMessage());
+        }
+    }
 
-        switch ((String) decoded.get("action")) {
+    private void processIncomingMessage(final ByteMessage byteMessage)
+            throws IOException, ClassNotFoundException {
 
-            case "chat":
-                this.sessions.get(Long.parseLong((String) decoded.get("session")))
-                        .addMessage((String) decoded.get("text"));
-                break;
+        Message received = byteMessage.getMessage();
+        LOG.info(received.toString());
 
+        switch (received.getHeader().getAction()) {
+
+//            case "chat":
+//                this.sessions.get(Long.parseLong((String) decoded.get("session")))
+//                        .addMessage((String) decoded.get("text"));
+//                break;
             case "login":
-                identity.setId(Long.parseLong((String) decoded.get("id")));
+                identity.setId(
+                        Long.parseLong(received.getHeader().getUserid()));
                 break;
 
             case "users":
                 this.buddies.clear();
-                ((List<User>) decoded.get("users")).forEach(user -> {
+                UserList.from(received.getBody()).getList().forEach(user -> {
                     this.buddies.put(user.getId(), user);
                 });
                 break;
 
-            case "session-open":
-                User buddy = this.buddies.get((String) decoded.get("from"));
-                Long sessionId = (Long) decoded.get("session");
-                SymetricDetails sd = (SymetricDetails) decoded.get("symetric");
-                Session newSession = new Session(sessionId, buddy, sd);
-                this.openedSessions.add(newSession);
-                Map<String, Object> response = new HashMap();
-                response.put("action", "session-open-confirm");
-                response.put("session", sessionId);
-                this.sendMessage(response);
-
-            case "session-open-confirm":
-                Long sessionId2 = (Long) decoded.get("session");
-                Session newSession2 = this.openSessionsRequests.remove(sessionId2);
-                this.openedSessions.add(newSession2);
-
-            case "session-close":
-                Long csid = (Long) decoded.get("session");
-                Session cs = this.sessions.get(csid);
-                this.closedSessions.add(cs);
-                Map<String, Object> response2 = new HashMap();
-                response2.put("action", "session-close-confirm");
-                response2.put("session", csid);
-                this.sendMessage(response2);
-                break;
-
-            case "session-close-confirm":
-                Long csid1 = (Long) decoded.get("session");
-                Session cs1 = this.closeSessionsRequests.remove(csid1);
-                this.closedSessions.add(cs1);
-                break;
-
+//            case "session-open":
+//                User buddy = this.buddies.get((String) decoded.get("from"));
+//                Long sessionId = (Long) decoded.get("session");
+//                SymetricDetails sd = (SymetricDetails) decoded.get("symetric");
+//                Session newSession = new Session(sessionId, buddy, sd);
+//                this.openedSessions.add(newSession);
+//                Map<String, Object> response = new HashMap();
+//                response.put("action", "session-open-confirm");
+//                response.put("session", sessionId);
+//                this.sendMessage(response);
+//
+//            case "session-open-confirm":
+//                Long sessionId2 = (Long) decoded.get("session");
+//                Session newSession2 = this.openSessionsRequests.remove(sessionId2);
+//                this.openedSessions.add(newSession2);
+//
+//            case "session-close":
+//                Long csid = (Long) decoded.get("session");
+//                Session cs = this.sessions.get(csid);
+//                this.closedSessions.add(cs);
+//                Map<String, Object> response2 = new HashMap();
+//                response2.put("action", "session-close-confirm");
+//                response2.put("session", csid);
+//                this.sendMessage(response2);
+//                break;
+//
+//            case "session-close-confirm":
+//                Long csid1 = (Long) decoded.get("session");
+//                Session cs1 = this.closeSessionsRequests.remove(csid1);
+//                this.closedSessions.add(cs1);
+//                break;
             default:
                 break;
 
