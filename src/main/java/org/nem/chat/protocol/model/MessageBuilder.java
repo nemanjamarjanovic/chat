@@ -1,4 +1,4 @@
-package org.nem.chat.protocol.service;
+package org.nem.chat.protocol.model;
 
 import org.nem.chat.protocol.model.*;
 
@@ -9,8 +9,8 @@ import org.nem.chat.protocol.model.*;
 public class MessageBuilder {
 
     private String type;
-    private String to;
-    private Header header;
+    private Long to;
+    private byte[] header;
     private byte[] body;
 
     public static MessageBuilder builder() {
@@ -22,12 +22,12 @@ public class MessageBuilder {
         return this;
     }
 
-    public MessageBuilder to(final String to) {
+    public MessageBuilder to(final Long to) {
         this.to = to;
         return this;
     }
 
-    public MessageBuilder header(final Header header) {
+    public MessageBuilder header(final byte[] header) {
         this.header = header;
         return this;
     }

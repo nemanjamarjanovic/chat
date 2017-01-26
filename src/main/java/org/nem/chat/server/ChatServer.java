@@ -28,7 +28,7 @@ public class ChatServer {
                 Client cs = new Client(socket);
                 CLIENTS.put(cs.getId(), cs);
                 Executors.newSingleThreadExecutor().execute(cs::receive);
-                Executors.newSingleThreadExecutor().execute(cs::send);
+                //Executors.newSingleThreadExecutor().execute(cs::send);
                 LOG.info("New client: " + cs);
             }
         } catch (IOException ex) {

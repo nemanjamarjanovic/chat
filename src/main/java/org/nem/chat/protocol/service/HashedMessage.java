@@ -1,59 +1,52 @@
 package org.nem.chat.protocol.service;
 
 import java.nio.charset.StandardCharsets;
+import java.security.Key;
+import java.security.MessageDigest;
 import java.util.Base64;
-import java.util.logging.Logger;
 import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
+import org.nem.chat.protocol.model.Message;
 
 /**
  *
  * @author Nemanja Marjanović
  */
-public class SymetricProcess {
+public class HashedMessage {
 
-    private static final Logger LOG = Logger.getLogger(SymetricProcess.class.getName());
+    private final byte[] hash;
 
-    private SecretKeySpec secretKey;
-    private Cipher cipher;
-
-    public SymetricProcess(final String algorithm, final String key) {
+    public HashedMessage(final Message message) {
         try {
-            this.secretKey = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), algorithm);
-            this.cipher = Cipher.getInstance(algorithm);
-        } catch (Exception e) {
-            LOG.severe(e.getMessage());
+            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            this.hash = messageDigest.digest(Message.BYTER.toBytes(message));
+        } catch (Exception exception) {
+            throw new RuntimeException(exception.getMessage());
         }
     }
 
-    public String encrypt(final String original) {
-        String message = original;
+    public byte[] signature(final Key key) {
         try {
-            //LOG.info("ORIGINAL: [" + this.original + "]");
-            this.cipher.init(Cipher.ENCRYPT_MODE, this.secretKey);
-            byte[] crypted = this.cipher.doFinal(original.getBytes(StandardCharsets.UTF_8));
-            byte[] base64 = Base64.getEncoder().encode(crypted);
-            message = new String(base64, StandardCharsets.UTF_8);
-            //LOG.info("CRYPTED: [" + message + "]");
-        } catch (Exception e) {
-            LOG.severe(e.getMessage());
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.ENCRYPT_MODE, key);
+            return Base64.getEncoder().encode(cipher.doFinal(hash));
+        } catch (Exception exception) {
+            throw new RuntimeException(exception.getMessage());
         }
-        return message;
     }
 
-    public String decrypt(final String original) {
-        String message = original;
+    public boolean verifySignature(final Key key, final byte[] signature) {
         try {
-            //LOG.info("CRYPTED: [" + this.original + "]");
-            this.cipher.init(Cipher.DECRYPT_MODE, this.secretKey);
-            byte[] base64 = Base64.getDecoder().decode(original.getBytes(StandardCharsets.UTF_8));
-            byte[] decrypted = this.cipher.doFinal(base64);
-            message = new String(decrypted, StandardCharsets.UTF_8);
-            //LOG.info("ORIGINAL: [" + message + "]");
-        } catch (Exception e) {
-            LOG.severe(e.getMessage());
+            Cipher cipher = Cipher.getInstance("RSA");
+            cipher.init(Cipher.DECRYPT_MODE, key);
+            byte[] decoded = cipher.doFinal(Base64.getDecoder().decode(signature));
+            return byteToString(decoded).equals(byteToString(this.hash));
+        } catch (Exception exception) {
+            throw new RuntimeException(exception.getMessage());
         }
-        return message;
+    }
+
+    private String byteToString(final byte[] byteArray) {
+        return new String(byteArray, StandardCharsets.UTF_8);
     }
 
 }

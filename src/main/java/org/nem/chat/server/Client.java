@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
@@ -15,9 +16,8 @@ import org.nem.chat.protocol.model.Header;
 import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.User;
 import org.nem.chat.protocol.model.UserList;
-import org.nem.chat.protocol.service.ByteMessage;
-import org.nem.chat.protocol.service.HeaderBuilder;
-import org.nem.chat.protocol.service.MessageBuilder;
+import org.nem.chat.protocol.model.HeaderBuilder;
+import org.nem.chat.protocol.model.MessageBuilder;
 
 /**
  *
@@ -39,80 +39,70 @@ public class Client {
         try {
             this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             this.out = new PrintWriter(socket.getOutputStream(), true);
-        } catch (Exception e) {
-            LOG.severe(e.getMessage());
+        } catch (IOException exception) {
+            LOG.severe(exception.getMessage());
             throw new RuntimeException();
         }
     }
 
     public void receive() {
-        String message;
-        try {
 
-            while ((message = this.in.readLine()) != null) {
-                ByteMessage byteMessage = ByteMessage.fromBytes(message.getBytes());
-                Message received = byteMessage.getMessage();
-                LOG.info(received.toString());
-                Header header;
-                Message response;
-                ByteMessage byteResponse;
+        String message = null;
+        while (true) {
 
-                if (received.getType().equals("Server")) {
-                    switch (received.getHeader().getAction()) {
-
-                        case "login":
-                            this.name = received.getHeader().getName();
-                            header = HeaderBuilder.builder().action("login")
-                                    .userid(this.id).build();
-                            response = MessageBuilder.builder().header(header).build();
-                            byteResponse = ByteMessage.fromMessage(response);
-                            this.out.println(new String(byteResponse.getBytes()));
-                            LOG.info(response.toString());
-                            break;
-
-                        case "logout":
-                            ChatServer.CLIENTS.remove(
-                                    received.getHeader().getUserid());
-                            break;
-
-                        case "users":
-                            List<User> list = ChatServer.CLIENTS.keySet().stream()
-                                    .map(k -> ChatServer.CLIENTS.get(k))
-                                    .filter(client -> client.name != null)
-                                    .map(client -> new User(client.id, client.name, client.publicKey))
-                                    .collect(Collectors.toList());
-                            LOG.info(list.toString());
-                            header = HeaderBuilder.builder().action("users").build();
-                            response = MessageBuilder.builder().header(header)
-                                    .body(UserList.to(new UserList(list))).build();
-                            byteResponse = ByteMessage.fromMessage(response);
-                            this.out.println(new String(byteResponse.getBytes()));
-                            break;
-
-                        case "chat":
-
-                            //ChatServer.INBOX.add(received);
-                            break;
-
-                        default:
-                            break;
-                    }
-                } else {
-                    ChatServer.CLIENTS.get(received.getTo()).OUTBOX
-                            .add(new String(byteMessage.getBytes()));
-                }
+            try {
+                message = this.in.readLine();
+            } catch (IOException exception) {
+                LOG.severe(exception.getMessage());
             }
-        } catch (IOException | ClassNotFoundException e) {
-            LOG.severe(e.getMessage());
+            if (message == null) {
+                break;
+            }
+
+            Message receivedMessage = Message.BYTER.fromBytes(message.getBytes(StandardCharsets.UTF_8));
+            Header receivedHeader = Header.BYTER.fromBytes(receivedMessage.getHeader());
+            Header responseHeader;
+            Message responseMessage;
+
+            if (receivedMessage.getType().equals("Server")) {
+                switch (receivedHeader.getAction()) {
+
+                    case "login":
+                        this.name = receivedHeader.getName();
+                        responseHeader = HeaderBuilder.builder().action("login").userid(this.id).build();
+                        responseMessage = MessageBuilder.builder().header(Header.BYTER.toBytes(responseHeader)).build();
+                        this.send(responseMessage);
+                        break;
+
+                    case "logout":
+                        ChatServer.CLIENTS.remove(receivedHeader.getUserid());
+                        break;
+
+                    case "users":
+                        List<User> list = ChatServer.CLIENTS.keySet().stream()
+                                .map(k -> ChatServer.CLIENTS.get(k))
+                                .filter(client -> client.name != null)
+                                .map(client -> new User(client.id, client.name, client.publicKey))
+                                .collect(Collectors.toList());
+                        responseHeader = HeaderBuilder.builder().action("users").build();
+                        responseMessage = MessageBuilder.builder().header(Header.BYTER.toBytes(responseHeader))
+                                .body(UserList.BYTER.toBytes(new UserList(list))).build();
+                        this.send(responseMessage);
+                        break;
+
+                    default:
+                        break;
+                }
+            } else {
+                LOG.info(receivedMessage.toString());
+                ChatServer.CLIENTS.get(receivedMessage.getTo()).send(receivedMessage);
+            }
         }
 
     }
 
-    public void send() {
-        String outgoing = OUTBOX.poll();
-        if (outgoing != null) {
-            this.out.println(outgoing);
-        }
+    private void send(final Message message) {
+        this.out.println(new String(Message.BYTER.toBytes(message), StandardCharsets.UTF_8));
     }
 
     public Long getId() {

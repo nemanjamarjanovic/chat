@@ -9,13 +9,14 @@ import java.io.Serializable;
 public class Message implements Serializable {
 
     private static final long serialVersionUID = -4505195206914616869L;
+    public static ByteSerializer<Message> BYTER = new ByteSerializer<>();
 
     private final String type;
-    private final String to;
-    private final Header header;
+    private final Long to;
+    private final byte[] header;
     private final byte[] body;
 
-    public Message(String type, String to, Header header, byte[] body) {
+    public Message(String type, Long to, byte[] header, byte[] body) {
         this.type = type;
         this.to = to;
         this.header = header;
@@ -26,11 +27,11 @@ public class Message implements Serializable {
         return type;
     }
 
-    public String getTo() {
+    public Long getTo() {
         return to;
     }
 
-    public Header getHeader() {
+    public byte[] getHeader() {
         return header;
     }
 
@@ -40,7 +41,8 @@ public class Message implements Serializable {
 
     @Override
     public String toString() {
-        return "Message{" + "type=" + type + ", to=" + to + ", header=" + header + ", body=" + body + '}';
+        return "Message{" + "type=" + type + ", to=" + to + ", header="
+                + new String(header) + ", body=" + new String(body) + '}';
     }
 
 }
