@@ -13,15 +13,15 @@ public class Header implements Serializable {
     private final String action;
     private final String name;
     private final String publickey;
-    private final String userid;
+    private final Long userid;
     private final String from;
-    private final String sessionid;
+    private final Long sessionid;
     private final String sessionKey;
     private final String hashAlg;
     private final String symetricAlg;
 
-    public Header(String action, String name, String publickey, String userid,
-            String from, String sessionid, String sessionKey, String hashAlg,
+    public Header(String action, String name, String publickey, Long userid,
+            String from, Long sessionid, String sessionKey, String hashAlg,
             String symetricAlg) {
         this.action = action;
         this.name = name;
@@ -50,7 +50,7 @@ public class Header implements Serializable {
         return publickey;
     }
 
-    public String getUserid() {
+    public Long getUserid() {
         return userid;
     }
 
@@ -58,7 +58,7 @@ public class Header implements Serializable {
         return from;
     }
 
-    public String getSessionid() {
+    public Long getSessionid() {
         return sessionid;
     }
 

@@ -11,9 +11,9 @@ public class HeaderBuilder {
     private String action;
     private String name;
     private String publickey;
-    private String userid;
+    private Long userid;
     private String from;
-    private String sessionid;
+    private Long sessionid;
     private String sessionKey;
     private String hashAlg;
     private String symetricAlg;
@@ -37,7 +37,7 @@ public class HeaderBuilder {
         return this;
     }
 
-    public HeaderBuilder userid(final String userid) {
+    public HeaderBuilder userid(final Long userid) {
         this.userid = userid;
         return this;
     }
@@ -47,7 +47,7 @@ public class HeaderBuilder {
         return this;
     }
 
-    public HeaderBuilder sessionid(final String sessionid) {
+    public HeaderBuilder sessionid(final Long sessionid) {
         this.sessionid = sessionid;
         return this;
     }

@@ -63,7 +63,7 @@ public class Client {
                         case "login":
                             this.name = received.getHeader().getName();
                             header = HeaderBuilder.builder().action("login")
-                                    .userid(this.id.toString()).build();
+                                    .userid(this.id).build();
                             response = MessageBuilder.builder().header(header).build();
                             byteResponse = ByteMessage.fromMessage(response);
                             this.out.println(new String(byteResponse.getBytes()));
@@ -72,7 +72,7 @@ public class Client {
 
                         case "logout":
                             ChatServer.CLIENTS.remove(
-                                    Long.parseLong(received.getHeader().getUserid()));
+                                    received.getHeader().getUserid());
                             break;
 
                         case "users":

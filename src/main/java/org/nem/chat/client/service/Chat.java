@@ -77,10 +77,6 @@ public class Chat {
 
     public void login(final String name) {
         this.identity.setName(name);
-//        Map<String, String> message = new HashMap();
-//        message.put("action", "login");
-//        message.put("name", );
-//        message.put("key", this.identity.getPublicKey());
 
         Header header = HeaderBuilder.builder().action("login")
                 .name(this.identity.getName())
@@ -114,13 +110,18 @@ public class Chat {
     }
 
     public void openChatSession(final User buddy) {
+
         Session newSession = new Session(buddy);
-        Map<String, Object> message = new HashMap();
-        message.put("action", "session-open");
-        message.put("session", newSession);
-        message.put("to", buddy.getId());
-        message.put("from", this.identity.getId());
-        this.sendMessage(message);
+        Header header = HeaderBuilder.builder().action("session-open")
+                .sessionid(newSession.getId())
+                .sessionKey(newSession.getSymetricDetails().getSessionKey())
+                .symetricAlg(newSession.getSymetricDetails().getSymetric())
+                .hashAlg(newSession.getSymetricDetails().getHash())
+                .build();
+        Message message = MessageBuilder.builder().type("Server")
+                .header(header).build();
+;
+        this.sendMessage2(message);
         this.openSessionsRequests.put(newSession.getId(), newSession);
     }
 
@@ -215,8 +216,7 @@ public class Chat {
 //                        .addMessage((String) decoded.get("text"));
 //                break;
             case "login":
-                identity.setId(
-                        Long.parseLong(received.getHeader().getUserid()));
+                identity.setId(received.getHeader().getUserid());
                 break;
 
             case "users":
