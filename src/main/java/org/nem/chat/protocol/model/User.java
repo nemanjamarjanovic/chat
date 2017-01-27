@@ -1,6 +1,7 @@
 package org.nem.chat.protocol.model;
 
 import java.io.Serializable;
+import java.security.PublicKey;
 
 /**
  *
@@ -12,12 +13,12 @@ public class User implements Serializable {
 
     private Long id;
     private String name;
-    private String publicKey;
+    private PublicKey publicKey;
 
     public User() {
     }
 
-    public User(Long id, String name, String publicKey) {
+    public User(Long id, String name, PublicKey publicKey) {
         this.id = id;
         this.name = name;
         this.publicKey = publicKey;
@@ -31,7 +32,7 @@ public class User implements Serializable {
         return name;
     }
 
-    public String getPublicKey() {
+    public PublicKey getPublicKey() {
         return publicKey;
     }
 
@@ -43,7 +44,7 @@ public class User implements Serializable {
         this.name = name;
     }
 
-    public void setPublicKey(String publicKey) {
+    public void setPublicKey(PublicKey publicKey) {
         this.publicKey = publicKey;
     }
 

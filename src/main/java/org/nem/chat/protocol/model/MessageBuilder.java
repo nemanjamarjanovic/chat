@@ -1,15 +1,12 @@
 package org.nem.chat.protocol.model;
 
-import org.nem.chat.protocol.model.*;
-
 /**
  *
  * @author nemanja.marjanovic
  */
 public class MessageBuilder {
 
-    private String type;
-    private Long to;
+    private byte[] serverHeader;
     private byte[] header;
     private byte[] body;
 
@@ -17,13 +14,8 @@ public class MessageBuilder {
         return new MessageBuilder();
     }
 
-    public MessageBuilder type(final String type) {
-        this.type = type;
-        return this;
-    }
-
-    public MessageBuilder to(final Long to) {
-        this.to = to;
+    public MessageBuilder serverHeader(final byte[] serverHeader) {
+        this.serverHeader = serverHeader;
         return this;
     }
 
@@ -38,6 +30,6 @@ public class MessageBuilder {
     }
 
     public Message build() {
-        return new Message(type, to, header, body);
+        return new Message(serverHeader, header, body);
     }
 }

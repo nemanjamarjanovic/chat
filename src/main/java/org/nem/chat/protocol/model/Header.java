@@ -1,19 +1,20 @@
 package org.nem.chat.protocol.model;
 
 import java.io.Serializable;
+import java.security.PublicKey;
 
 /**
  *
  * @author nemanja.marjanovic
  */
-public class Header implements Serializable{
+public class Header implements Serializable {
 
     private static final long serialVersionUID = 2901049363555932128L;
     public static ByteSerializer<Header> BYTER = new ByteSerializer<>();
 
     private final String action;
     private final String name;
-    private final String publickey;
+    private final PublicKey publickey;
     private final Long userid;
     private final Long from;
     private final Long sessionid;
@@ -21,7 +22,7 @@ public class Header implements Serializable{
     private final String hashAlg;
     private final String symetricAlg;
 
-    public Header(String action, String name, String publickey, Long userid,
+    public Header(String action, String name, PublicKey publickey, Long userid,
             Long from, Long sessionid, String sessionKey, String hashAlg,
             String symetricAlg) {
         this.action = action;
@@ -47,7 +48,7 @@ public class Header implements Serializable{
         return name;
     }
 
-    public String getPublickey() {
+    public PublicKey getPublickey() {
         return publickey;
     }
 

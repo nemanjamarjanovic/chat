@@ -1,6 +1,6 @@
 package org.nem.chat.protocol.model;
 
-import org.nem.chat.protocol.model.*;
+import java.security.PublicKey;
 
 /**
  *
@@ -10,7 +10,7 @@ public class HeaderBuilder {
 
     private String action;
     private String name;
-    private String publickey;
+    private PublicKey publickey;
     private Long userid;
     private Long from;
     private Long sessionid;
@@ -32,7 +32,7 @@ public class HeaderBuilder {
         return this;
     }
 
-    public HeaderBuilder publickey(final String publickey) {
+    public HeaderBuilder publickey(final PublicKey publickey) {
         this.publickey = publickey;
         return this;
     }

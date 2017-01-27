@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.security.Key;
+import java.security.PublicKey;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,10 +18,14 @@ import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.nem.chat.client.model.Session;
+import org.nem.chat.protocol.model.AsymetricKey;
 import org.nem.chat.protocol.model.Header;
 import org.nem.chat.protocol.model.Message;
+import org.nem.chat.protocol.model.MessageBuilder;
 import org.nem.chat.protocol.model.User;
 import org.nem.chat.protocol.model.UserList;
+import org.nem.chat.protocol.service.Envelope;
+import org.nem.chat.protocol.service.HashedMessage;
 
 /**
  *
@@ -30,7 +36,7 @@ public class Chat {
     private static final Logger LOG = Logger.getLogger("CLIENT");
 
     private final User identity;
-    private String privateKey;
+    private final AsymetricKey key;
     private final Map<Long, User> buddies = new ConcurrentHashMap<>();
     private final Map<Long, Session> sessions = new ConcurrentHashMap<>();
     private final Map<Long, Session> openSessionsRequests = new ConcurrentHashMap<>();
@@ -40,19 +46,20 @@ public class Chat {
     private final PrintWriter out;
     private final BufferedReader in;
     private final MessageComposer messageComposer = new MessageComposer();
+    private PublicKey serverPublicKey;
 
     public Chat() {
         try {
             Socket socket = new Socket("localhost", 9011);
             this.out = new PrintWriter(socket.getOutputStream(), true);
             this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        } catch (Exception e) {
-            LOG.severe(e.getMessage());
-            throw new RuntimeException();
+            this.key = new AsymetricKey();
+        } catch (Exception exception) {
+            throw new RuntimeException(exception.getMessage());
         }
 
         this.identity = new User();
-        this.identity.setPublicKey("public key");
+        this.identity.setPublicKey(this.key.getPublicKey());
         Executors.newSingleThreadExecutor().execute(this::listenForMessages);
     }
 
@@ -73,20 +80,20 @@ public class Chat {
         Message message = this.messageComposer.loginMessage(
                 this.identity.getName(),
                 this.identity.getPublicKey());
-        this.sendMessage(message);
+        this.sendMessage(message, serverPublicKey);
     }
 
     public void logout() {
         if (isLogged()) {
             Message message = this.messageComposer.logoutMessage(
                     this.identity.getId());
-            this.sendMessage(message);
+            this.sendMessage(message, serverPublicKey);
             this.identity.setId(null);
         }
     }
 
     public List<User> getAvailableBuddies() {
-        this.sendMessage(messageComposer.usersMessage());
+        this.sendMessage(messageComposer.usersMessage(), serverPublicKey);
         return this.buddies.keySet()
                 .stream()
                 .filter(k -> !k.equals(this.identity.getId()))
@@ -98,7 +105,7 @@ public class Chat {
         Session newSession = new Session(buddy);
         Message message = this.messageComposer.sendOpenSessionMessage(newSession,
                 this.identity.getId());
-        this.sendMessage(message);
+        this.sendMessage(message, buddy.getPublicKey());
         this.openSessionsRequests.put(newSession.getId(), newSession);
     }
 
@@ -107,7 +114,7 @@ public class Chat {
             Session sessionToClose = this.sessions.get(id);
             Message message = this.messageComposer.sendCloseSessionMessage(
                     sessionToClose, this.identity.getId());
-            this.sendMessage(message);
+            this.sendMessage(message, sessionToClose.getBuddy().getPublicKey());
             this.closeSessionsRequests.put(sessionToClose.getId(), sessionToClose);
         }
     }
@@ -133,7 +140,7 @@ public class Chat {
         if (chatSession != null) {
             Message message = messageComposer.sendChatMessage(chatSession,
                     this.identity.getId(), chatSession.encrypt(text));
-            this.sendMessage(message);
+            this.sendMessage(message, chatSession.getBuddy().getPublicKey());
         }
     }
 
@@ -149,37 +156,53 @@ public class Chat {
         return message;
     }
 
-    private void sendMessage(final Message message) {
+    private void sendMessage(final Message message, final Key key) {
 
-        if (message.getType().equals("Server")) {
-            //sign header with server public key
-        } else {
-              //sign header with client public key
-        }
-        
-        //hash message
-        //sign hash
-        //return string
+        Envelope serverHeaderEnvelope = new Envelope(message.getServerHeader());
+        byte[] packedServerHeader = serverHeaderEnvelope.pack(null);//server
 
-        this.out.println(new String(Message.BYTER.toBytes(message), StandardCharsets.UTF_8));
+        Envelope headerEnvelope = new Envelope(message.getHeader());
+        byte[] packedHeader = headerEnvelope.pack(key);
+
+        Message packedMessage = MessageBuilder.builder().serverHeader(packedServerHeader)
+                .header(packedHeader).body(message.getBody()).build();
+
+        HashedMessage hashedMessage = new HashedMessage(packedMessage);
+        byte[] signature = hashedMessage.signature(this.key.getPrivateKey());
+
+        String finalMessage = new String(signature, StandardCharsets.UTF_8) + ":s"
+                + new String(Message.BYTER.toBytes(packedMessage), StandardCharsets.UTF_8);
+
+        this.out.println(finalMessage);
     }
 
     private void listenForMessages() {
         String fromServer;
         try {
             while ((fromServer = in.readLine()) != null) {
-                this.processIncomingMessage(
-                        Message.BYTER.fromBytes(fromServer.getBytes(StandardCharsets.UTF_8)));
+
+                String split[] = fromServer.split(":");
+                Message original = Message.BYTER.fromBytes(split[1].getBytes(StandardCharsets.UTF_8));
+
+                Envelope headerEnvelope = new Envelope(original.getHeader());
+                Header unpackedHeader = Header.BYTER.fromBytes(headerEnvelope.unpack(this.key.getPrivateKey()));
+                PublicKey fromKey = this.buddies.get(unpackedHeader.getFrom()).getPublicKey();
+
+                HashedMessage hashedMessage = new HashedMessage(original);
+                hashedMessage.verifySignature(fromKey, split[0].getBytes(StandardCharsets.UTF_8));
+
+                this.processIncomingMessage(original, unpackedHeader);
             }
         } catch (IOException | ClassNotFoundException ex) {
             LOG.severe(ex.getMessage());
         }
     }
 
-    private void processIncomingMessage(final Message receivedMessage)
+    private void processIncomingMessage(final Message receivedMessage, final Header receivedHeader)
             throws IOException, ClassNotFoundException {
 
-        Header receivedHeader = Header.BYTER.fromBytes(receivedMessage.getHeader());
+        //Header receivedHeader = Header.BYTER.fromBytes(receivedMessage.getHeader());
+        LOG.info(receivedHeader.toString());
         Message response;
         switch (receivedHeader.getAction()) {
 
@@ -206,7 +229,7 @@ public class Chat {
                 this.openedSessions.add(newSession);
                 response = messageComposer.sendOpenSessionConfirmMessage(
                         newSession.getId(), this.identity.getId(), receivedHeader.getFrom());
-                this.sendMessage(response);
+                this.sendMessage(response, newSession.getBuddy().getPublicKey());
                 break;
 
             case "session-open-confirm":
@@ -215,12 +238,11 @@ public class Chat {
                 break;
 
             case "session-close":
-                this.closedSessions.add(
-                        this.sessions.get(
-                                receivedHeader.getSessionid()));
+                Session closedSession = this.sessions.get(receivedHeader.getSessionid());
+                this.closedSessions.add(closedSession);
                 response = messageComposer.sendCloseSessionConfirmMessage(
                         receivedHeader.getSessionid(), this.identity.getId(), receivedHeader.getFrom());
-                this.sendMessage(response);
+                this.sendMessage(response, closedSession.getBuddy().getPublicKey());
                 break;
 
             case "session-close-confirm":
@@ -231,5 +253,9 @@ public class Chat {
             default:
                 break;
         }
+    }
+
+    public int sessionCount() {
+        return this.sessions.size();
     }
 }

@@ -1,10 +1,12 @@
 package org.nem.chat.client.service;
 
+import java.security.PublicKey;
 import org.nem.chat.client.model.Session;
 import org.nem.chat.protocol.model.Header;
-import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.HeaderBuilder;
+import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.MessageBuilder;
+import org.nem.chat.protocol.model.ServerHeader;
 
 /**
  *
@@ -12,7 +14,7 @@ import org.nem.chat.protocol.model.MessageBuilder;
  */
 public class MessageComposer {
 
-    public Message loginMessage(final String name, final String publicKey) {
+    public Message loginMessage(final String name, final PublicKey publicKey) {
         return serverMessage(HeaderBuilder.builder().action("login").name(name).publickey(publicKey).build());
     }
 
@@ -25,7 +27,8 @@ public class MessageComposer {
     }
 
     private Message serverMessage(final Header header) {
-        return MessageBuilder.builder().type("Server").header(Header.BYTER.toBytes(header)).build();
+        return MessageBuilder.builder().serverHeader(serverHeader("Server", null))
+                .header(Header.BYTER.toBytes(header)).build();
     }
 
     public Message sendOpenSessionMessage(final Session session, final Long id) {
@@ -47,10 +50,16 @@ public class MessageComposer {
 
     public Message sendChatMessage(final Session session, final Long id, final byte[] text) {
         Header header = HeaderBuilder.builder().action("chat").sessionid(session.getId()).from(id).build();
-        return MessageBuilder.builder().type("Client").to(session.getBuddy().getId()).header(Header.BYTER.toBytes(header)).body(text).build();
+        return MessageBuilder.builder()
+                .serverHeader(serverHeader("Client", session.getBuddy().getId()))
+                .header(Header.BYTER.toBytes(header)).body(text).build();
     }
 
     private Message sessionMessage(final Header header, final Long to) {
-        return MessageBuilder.builder().type("Client").to(to).header(Header.BYTER.toBytes(header)).build();
+        return MessageBuilder.builder().serverHeader(serverHeader("Client", to)).header(Header.BYTER.toBytes(header)).build();
+    }
+
+    private byte[] serverHeader(final String type, final Long to) {
+        return ServerHeader.BYTER.toBytes(new ServerHeader(type, to));
     }
 }

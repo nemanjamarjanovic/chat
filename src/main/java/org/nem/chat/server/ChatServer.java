@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.logging.Logger;
+import org.nem.chat.protocol.model.AsymetricKey;
 
 /**
  *
@@ -16,24 +17,21 @@ public class ChatServer {
 
     private static final Logger LOG = Logger.getLogger("SERVER");
     public static final Map<Long, Client> CLIENTS = new ConcurrentHashMap<>();
+    public static final AsymetricKey SERVER_KEY = new AsymetricKey();
 
     public void listen() {
-        int port = 9011;
-        boolean listening = true;
-
-        LOG.info("Server listening on port: " + port);
+        final int port = 9011;
+        //LOG.info("Server listening on port: " + port);
         try (ServerSocket serverSocket = new ServerSocket(port)) {
-            while (listening) {
+            while (true) {
                 Socket socket = serverSocket.accept();
                 Client cs = new Client(socket);
                 CLIENTS.put(cs.getId(), cs);
                 Executors.newSingleThreadExecutor().execute(cs::receive);
-                //Executors.newSingleThreadExecutor().execute(cs::send);
-                LOG.info("New client: " + cs);
+                //LOG.info(CLIENTS.toString());
             }
-        } catch (IOException ex) {
-            LOG.severe(ex.getMessage());
-            System.exit(-1);
+        } catch (IOException exception) {
+            throw new RuntimeException(exception.getMessage());
         }
     }
 

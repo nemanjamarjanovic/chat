@@ -11,24 +11,18 @@ public class Message implements Serializable {
     private static final long serialVersionUID = -4505195206914616869L;
     public static ByteSerializer<Message> BYTER = new ByteSerializer<>();
 
-    private final String type;
-    private final Long to;
+    private final byte[] serverHeader;
     private final byte[] header;
     private final byte[] body;
 
-    public Message(String type, Long to, byte[] header, byte[] body) {
-        this.type = type;
-        this.to = to;
+    public Message(byte[] serverHeader, byte[] header, byte[] body) {
+        this.serverHeader = serverHeader;
         this.header = header;
         this.body = body;
     }
 
-    public String getType() {
-        return type;
-    }
-
-    public Long getTo() {
-        return to;
+    public byte[] getServerHeader() {
+        return serverHeader;
     }
 
     public byte[] getHeader() {
@@ -41,8 +35,14 @@ public class Message implements Serializable {
 
     @Override
     public String toString() {
-        return "Message{" + "type=" + type + ", to=" + to + ", header="
-                + new String(header) + ", body=" + new String(body) + '}';
+        return "Message{"
+                + ", serverHeader=" + this.byteArrayString(serverHeader)
+                + ", header=" + this.byteArrayString(header)
+                + ", body=" + this.byteArrayString(body) + '}';
+    }
+
+    private String byteArrayString(final byte[] byteArray) {
+        return (byteArray != null) ? new String(byteArray) : "[]";
     }
 
 }
