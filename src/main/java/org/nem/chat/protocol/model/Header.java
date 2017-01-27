@@ -6,22 +6,23 @@ import java.io.Serializable;
  *
  * @author nemanja.marjanovic
  */
-public class Header implements Serializable {
+public class Header implements Serializable{
 
     private static final long serialVersionUID = 2901049363555932128L;
+    public static ByteSerializer<Header> BYTER = new ByteSerializer<>();
 
     private final String action;
     private final String name;
     private final String publickey;
     private final Long userid;
-    private final String from;
+    private final Long from;
     private final Long sessionid;
     private final String sessionKey;
     private final String hashAlg;
     private final String symetricAlg;
 
     public Header(String action, String name, String publickey, Long userid,
-            String from, Long sessionid, String sessionKey, String hashAlg,
+            Long from, Long sessionid, String sessionKey, String hashAlg,
             String symetricAlg) {
         this.action = action;
         this.name = name;
@@ -54,7 +55,7 @@ public class Header implements Serializable {
         return userid;
     }
 
-    public String getFrom() {
+    public Long getFrom() {
         return from;
     }
 

@@ -1,4 +1,4 @@
-package org.nem.chat.protocol.service;
+package org.nem.chat.protocol.model;
 
 import org.nem.chat.protocol.model.*;
 
@@ -12,7 +12,7 @@ public class HeaderBuilder {
     private String name;
     private String publickey;
     private Long userid;
-    private String from;
+    private Long from;
     private Long sessionid;
     private String sessionKey;
     private String hashAlg;
@@ -42,7 +42,7 @@ public class HeaderBuilder {
         return this;
     }
 
-    public HeaderBuilder from(final String from) {
+    public HeaderBuilder from(final Long from) {
         this.from = from;
         return this;
     }
