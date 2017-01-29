@@ -9,9 +9,6 @@ import java.util.List;
  */
 public class UserList implements Serializable {
 
-    private static final long serialVersionUID = 7615105865807425418L;
-    public static ByteSerializer<UserList> BYTER = new ByteSerializer<>();
-
     private final List<User> list;
 
     public UserList(List<User> list) {

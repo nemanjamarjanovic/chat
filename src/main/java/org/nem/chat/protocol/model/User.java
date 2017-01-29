@@ -9,8 +9,6 @@ import java.security.PublicKey;
  */
 public class User implements Serializable {
 
-    private static final long serialVersionUID = -8554476094078305548L;
-
     private Long id;
     private String name;
     private PublicKey publicKey;

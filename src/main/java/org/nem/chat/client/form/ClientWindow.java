@@ -7,7 +7,6 @@ import net.miginfocom.layout.CC;
 import net.miginfocom.swing.MigLayout;
 import org.nem.chat.client.service.Chat;
 
-
 /**
  *
  * @author Nemanja Marjanović
@@ -47,6 +46,7 @@ public class ClientWindow extends JFrame {
     @Override
     public void dispose() {
         this.chat.logout();
+        this.chat.end();
         super.dispose();
     }
 

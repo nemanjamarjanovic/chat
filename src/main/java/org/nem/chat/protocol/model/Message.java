@@ -1,48 +1,73 @@
 package org.nem.chat.protocol.model;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 
 /**
  *
- * @author nemanja.marjanovic
+ * @author Nemanja Marjanović
  */
 public class Message implements Serializable {
 
-    private static final long serialVersionUID = -4505195206914616869L;
-    public static ByteSerializer<Message> BYTER = new ByteSerializer<>();
+    private final String command;
+    private final Long from;
+    private Long to;
+    private byte[] body;
+    private byte[] signature;
 
-    private final byte[] serverHeader;
-    private final byte[] header;
-    private final byte[] body;
+    public Message(String command, Long from) {
+        this.command = command;
+        this.from = from;
+    }
 
-    public Message(byte[] serverHeader, byte[] header, byte[] body) {
-        this.serverHeader = serverHeader;
-        this.header = header;
+    public Message(String command, Long from, Long to, byte[] body) {
+        this.command = command;
+        this.from = from;
+        this.to = to;
         this.body = body;
     }
 
-    public byte[] getServerHeader() {
-        return serverHeader;
+    public String getCommand() {
+        return command;
     }
 
-    public byte[] getHeader() {
-        return header;
+    public Long getFrom() {
+        return from;
+    }
+
+    public Long getTo() {
+        return to;
     }
 
     public byte[] getBody() {
         return body;
     }
 
-    @Override
-    public String toString() {
-        return "Message{"
-                + ", serverHeader=" + this.byteArrayString(serverHeader)
-                + ", header=" + this.byteArrayString(header)
-                + ", body=" + this.byteArrayString(body) + '}';
+    public void setTo(Long to) {
+        this.to = to;
     }
 
-    private String byteArrayString(final byte[] byteArray) {
-        return (byteArray != null) ? new String(byteArray) : "[]";
+    public void setBody(byte[] body) {
+        this.body = body;
+    }
+
+    public byte[] getSignature() {
+        return signature;
+    }
+
+    public void setSignature(byte[] signature) {
+        this.signature = signature;
+    }
+
+    @Override
+    public String toString() {
+        return "Message{" + "command=" + command + ", from=" + from + ", to="
+                + to + ", body=" + byteArrayString(body) + ", signature="
+                + byteArrayString(signature) + '}';
+    }
+
+    private String byteArrayString(byte[] byteArray) {
+        return (byteArray != null) ? new String(byteArray, StandardCharsets.UTF_8) : "[]";
     }
 
 }

@@ -1,27 +1,24 @@
 package org.nem.chat.server;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import static java.lang.Math.abs;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.security.PublicKey;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
-import org.nem.chat.protocol.model.Header;
-import org.nem.chat.protocol.model.HeaderBuilder;
+import org.nem.chat.crypto.model.SymetricKey;
+import org.nem.chat.crypto.service.SymetricProcess;
+import org.nem.chat.protocol.model.ByteSerializer;
 import org.nem.chat.protocol.model.Message;
-import org.nem.chat.protocol.model.MessageBuilder;
-import org.nem.chat.protocol.model.ServerHeader;
 import org.nem.chat.protocol.model.User;
-import org.nem.chat.protocol.model.UserList;
-import org.nem.chat.protocol.service.Envelope;
-import org.nem.chat.protocol.service.HashedMessage;
+import org.nem.chat.transport.AsymetricCryptedStream;
+import org.nem.chat.transport.MessageStream;
+import org.nem.chat.transport.PlainTextStream;
+import org.nem.chat.transport.SymetricCryptedStream;
 
 /**
  *
@@ -31,101 +28,70 @@ public class Client {
 
     private static final Logger LOG = Logger.getLogger("SERVER");
     public final Queue<String> OUTBOX = new ConcurrentLinkedQueue<>();
-
+    private final Long id;
     private final User user;
-    private final BufferedReader in;
-    private final PrintWriter out;
+    private final MessageStream messageStream;
+    private final ScheduledExecutorService listener;
 
     public Client(final Socket socket) {
-        this.user = new User();
-        this.user.setId(abs(new Random().nextLong()));
-        try {
-            this.in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            this.out = new PrintWriter(socket.getOutputStream(), true);
-        } catch (IOException exception) {
-            throw new RuntimeException(exception.getMessage());
-        }
+
+        this.id = abs(new Random().nextLong());
+
+        PlainTextStream plainTextStream = new PlainTextStream(socket);
+
+        ByteSerializer<PublicKey> PK_BYTER = new ByteSerializer<>();
+
+        byte[] b1 = plainTextStream.readBytes();
+        PublicKey clientPk = PK_BYTER.fromBytes(b1);
+        //LOG.info(clientPk.toString());
+
+        byte[] b2 = PK_BYTER.toBytes(ChatServer.KEY.getPublicKey());
+        plainTextStream.writeBytes(b2);
+
+        AsymetricCryptedStream asymetricCryptedStream = new AsymetricCryptedStream(
+                plainTextStream, clientPk, ChatServer.KEY.getPrivateKey());
+
+        String symKey = asymetricCryptedStream.readString();
+        //LOG.info(symKey);
+        String symAlg = asymetricCryptedStream.readString();
+        //LOG.info(symAlg);
+
+        SymetricCryptedStream symetricCryptedStream = new SymetricCryptedStream(plainTextStream,
+                new SymetricProcess(new SymetricKey(symKey, symAlg)));
+
+        symetricCryptedStream.writeString(this.id.toString());
+        String name = symetricCryptedStream.readString();
+
+        this.user = new User(this.id, name, clientPk);
+        this.messageStream = new MessageStream(symetricCryptedStream);
+        ClientStreamListener csl = new ClientStreamListener(user, this.messageStream);
+        this.listener = Executors.newSingleThreadScheduledExecutor();
+        this.listener.scheduleAtFixedRate(csl::listen, 10, 10, TimeUnit.MILLISECONDS);
+        LOG.info("Accepted in: ID-" + this.id + " NAME: " + name + " ALG: " + symAlg);
     }
 
-    public void receive() {
-
-        String message = null;
-        while (true) {
-
-            try {
-                message = this.in.readLine();
-            } catch (IOException exception) {
-                throw new RuntimeException(exception.getMessage());
-            }
-            if (message == null) {
-                break;
-            }
-
-            //LOG.info(message);
-            String split[] = message.split(":");
-            Message original = Message.BYTER.fromBytes(split[1].getBytes(StandardCharsets.UTF_8));
-            Envelope serverHeaderEnvelope = new Envelope(original.getHeader());
-            ServerHeader unpackedServerHeader = ServerHeader.BYTER.fromBytes(serverHeaderEnvelope.unpack(
-                    ChatServer.SERVER_KEY.getPrivateKey()));
-
-            if (unpackedServerHeader.getType().equals("Client")) {
-                this.forwardMessage(original, unpackedServerHeader.getTo());
-                continue;
-            }
-
-            Envelope headerEnvelope = new Envelope(original.getHeader());
-            Header receivedHeader = Header.BYTER.fromBytes(headerEnvelope.unpack(ChatServer.SERVER_KEY.getPrivateKey()));
-            HashedMessage hashedMessage = new HashedMessage(original);
-            hashedMessage.verifySignature(this.user.getPublicKey(), split[0].getBytes(StandardCharsets.UTF_8));
-            Header responseHeader;
-            Message responseMessage;
-
-            switch (receivedHeader.getAction()) {
-
-                case "login":
-                    this.user.setName(receivedHeader.getName());
-                    responseHeader = HeaderBuilder.builder().action("login").userid(this.user.getId()).build();
-                    responseMessage = MessageBuilder.builder().header(Header.BYTER.toBytes(responseHeader)).build();
-                    this.send(responseMessage);
-                    break;
-
-                case "logout":
-                    ChatServer.CLIENTS.remove(receivedHeader.getUserid());
-                    break;
-
-                case "users":
-                    List<User> list = ChatServer.CLIENTS.keySet().stream()
-                            .map(k -> ChatServer.CLIENTS.get(k))
-                            .map(client -> client.user)
-                            .filter(user -> user.getName() != null)
-                            .collect(Collectors.toList());
-                    responseHeader = HeaderBuilder.builder().action("users").build();
-                    responseMessage = MessageBuilder.builder().header(Header.BYTER.toBytes(responseHeader))
-                            .body(UserList.BYTER.toBytes(new UserList(list))).build();
-                    this.send(responseMessage);
-                    break;
-
-                default:
-                    break;
-            }
-        }
+    public void send(final Message data) {
+        this.messageStream.writeMessage(data);
+        LOG.info("Forwarded" + data);
     }
 
-    private void forwardMessage(final Message message, final Long to) {
-        ChatServer.CLIENTS.get(to).send(message);
-    }
-
-    private void send(final Message message) {
-        this.out.println(new String(Message.BYTER.toBytes(message), StandardCharsets.UTF_8));
+    public void end() {
+        //this.plainTextStream.end();
+        listener.shutdown();
+        ChatServer.CLIENTS.remove(this.id);
     }
 
     public Long getId() {
-        return this.user.getId();
+        return this.id;
+    }
+
+    public User getUser() {
+        return user;
     }
 
     @Override
     public String toString() {
-        return "Client{" + "user=" + user + ", in=" + in + ", out=" + out + '}';
+        return "Client{" + "id=" + id + '}';
     }
 
 }

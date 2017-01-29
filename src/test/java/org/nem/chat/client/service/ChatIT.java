@@ -3,14 +3,9 @@ package org.nem.chat.client.service;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.After;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Test;
 import org.nem.chat.client.model.Session;
-import org.nem.chat.protocol.model.User;
 import org.nem.chat.server.ChatServer;
 
 /**
@@ -20,33 +15,16 @@ import org.nem.chat.server.ChatServer;
 public class ChatIT {
 
     private ExecutorService serverService;
-    private Chat instance;
 
-    public ChatIT() {
-    }
-
-//    @BeforeClass
-//    public static void setUpClass() {
-//        ChatServer chatServer = new ChatServer();
-//        serverService = Executors.newSingleThreadExecutor();
-//        serverService.submit(chatServer::listen);
-//    }
-//
-//    @AfterClass
-//    public static void tearDownClass() {
-//        serverService.shutdown();
-//    }
     @Before
     public void setUp() {
         ChatServer chatServer = new ChatServer();
         serverService = Executors.newSingleThreadExecutor();
         serverService.submit(chatServer::listen);
-        instance = new Chat();
     }
 
     @After
     public void tearDown() {
-        instance = null;
         serverService.shutdown();
     }
 
@@ -56,87 +34,60 @@ public class ChatIT {
         System.out.println("SendChatMessage test");
         String expectedMessage = "Hello chat world!!!";
         String expectedResponse = "Hello chat world!!! Response";
-        int expectedBuddies = 1;
-        int expectedSessions = 1;
 
-        Chat buddyInstance = new Chat();
-        this.login(this.instance, 1);
-        assertTrue(this.instance.isLogged());
+        Chat chat1 = new Chat();
+        Chat chat2 = new Chat();
+        Chat chat3 = new Chat();
 
-        this.login(buddyInstance, 2);
-        assertTrue(buddyInstance.isLogged());
+        chat1.login("User1");
+        chat2.login("User2");
+        chat3.login("User3");
 
-        this.getBuddies(this.instance);
-        assertEquals(expectedBuddies, this.instance.getAvailableBuddies().size());
+        Thread.sleep(3000);
 
-        this.getBuddies(buddyInstance);
-        assertEquals(expectedBuddies, buddyInstance.getAvailableBuddies().size());
+        chat1.getAvailableBuddies();
+        chat2.getAvailableBuddies();
+        chat3.getAvailableBuddies();
 
-        this.openSession(this.instance);
-        Session openedSession = this.instance.getOpenedSession();
-        assertNotNull(openedSession);
-        assertEquals(expectedSessions, this.instance.sessionCount());
-
-        Session buddySession = buddyInstance.getOpenedSession();
-        assertNotNull(buddySession);
-        assertEquals(expectedSessions, buddyInstance.sessionCount());
-
-        this.instance.sendChatMessage(openedSession.getId(), expectedMessage);
-        this.instance.sendChatMessage(openedSession.getId(), expectedMessage);
-        this.instance.sendChatMessage(openedSession.getId(), expectedMessage);
-        buddyInstance.sendChatMessage(openedSession.getId(), expectedResponse);
-        buddyInstance.sendChatMessage(openedSession.getId(), expectedResponse);
-        buddyInstance.sendChatMessage(openedSession.getId(), expectedResponse);
         Thread.sleep(1000);
 
-        String actualMessage = buddyInstance.receiveChatMessage(openedSession.getId());
-        String actualResponse = this.instance.receiveChatMessage(openedSession.getId());
-        assertEquals(expectedMessage, actualMessage);
-        assertEquals(expectedResponse, actualResponse);
+        chat1.openChatSession(chat2.getIdentity());
+        chat1.openChatSession(chat3.getIdentity());
+        chat2.openChatSession(chat1.getIdentity());
+        chat2.openChatSession(chat3.getIdentity());
+        chat3.openChatSession(chat2.getIdentity());
+        chat3.openChatSession(chat1.getIdentity());
 
-        actualMessage = buddyInstance.receiveChatMessage(openedSession.getId());
-        actualResponse = this.instance.receiveChatMessage(openedSession.getId());
-        assertEquals(expectedMessage, actualMessage);
-        assertEquals(expectedResponse, actualResponse);
+        Thread.sleep(3000);
 
-        actualMessage = buddyInstance.receiveChatMessage(openedSession.getId());
-        actualResponse = this.instance.receiveChatMessage(openedSession.getId());
-        assertEquals(expectedMessage, actualMessage);
-        assertEquals(expectedResponse, actualResponse);
+        Session s12 = chat1.getOpenedSession();
+        Session s13 = chat1.getOpenedSession();
+        Session s21 = chat2.getOpenedSession();
+        Session s23 = chat2.getOpenedSession();
+        Session s31 = chat3.getOpenedSession();
+        Session s32 = chat3.getOpenedSession();
+ 
+        Thread.sleep(3000);
+        
+        System.out.println(chat1.sessionCount());
+        System.out.println(chat2.sessionCount());
+        System.out.println(chat3.sessionCount());
 
-        // nema vise poruka
-        actualMessage = buddyInstance.receiveChatMessage(openedSession.getId());
-        actualResponse = this.instance.receiveChatMessage(openedSession.getId());
-        assertNull(expectedMessage, actualMessage);
-        assertNull(expectedResponse, actualResponse);
+        chat1.sendChatMessage(s12.getId(), expectedMessage);
+        chat1.sendChatMessage(s13.getId(), expectedMessage);
+        chat2.sendChatMessage(s21.getId(), expectedMessage);
+        chat2.sendChatMessage(s23.getId(), expectedMessage);
+        chat3.sendChatMessage(s31.getId(), expectedMessage);
+        chat3.sendChatMessage(s32.getId(), expectedMessage);
+
+        Thread.sleep(10000);
+
+        System.out.println(chat1.receiveChatMessage(s12.getId()));
+        System.out.println(chat1.receiveChatMessage(s13.getId()));
+        System.out.println(chat2.receiveChatMessage(s21.getId()));
+        System.out.println(chat2.receiveChatMessage(s23.getId()));
+        System.out.println(chat3.receiveChatMessage(s31.getId()));
+        System.out.println(chat3.receiveChatMessage(s32.getId()));
+
     }
-
-    private void login(final Chat chat, final int i) throws InterruptedException {
-        chat.login("User" + i);
-        Thread.sleep(100);
-    }
-
-    private void logout(final Chat chat) throws InterruptedException {
-        chat.logout();
-        Thread.sleep(100);
-    }
-
-    private void getBuddies(final Chat chat) throws InterruptedException {
-        chat.getAvailableBuddies();
-        Thread.sleep(100);
-        chat.getAvailableBuddies();
-        Thread.sleep(100);
-    }
-
-    private void openSession(final Chat chat) throws InterruptedException {
-        User buddy = chat.getAvailableBuddies().get(0);
-        chat.openChatSession(buddy);
-        Thread.sleep(1000);
-    }
-
-    private void closeSession(final Chat chat, final Long id) throws InterruptedException {
-        chat.closeChatSession(id);
-        Thread.sleep(1000);
-    }
-
 }
