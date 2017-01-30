@@ -1,8 +1,6 @@
 package org.nem.chat.client.service;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import org.nem.chat.transport.MessageStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,6 +20,8 @@ import org.nem.chat.protocol.model.ByteSerializer;
 import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.User;
 import org.nem.chat.protocol.model.UserList;
+import org.nem.chat.protocol.service.HashedMessage;
+import org.nem.chat.transport.model.MessageStream;
 
 /**
  *
@@ -51,7 +51,7 @@ public class Chat {
         this.identity.setId(this.serverStream.getId());
         this.identity.setName(name);
         this.serverMessageStream = new MessageStream(serverStream, this.identity,
-                new User(null, null, this.serverStream.getServerPublicKey()));
+                new User(0L, null, this.serverStream.getServerPublicKey()));
         this.messageStream = new MessageStream(serverStream);
         this.listener = Executors.newSingleThreadExecutor();
         this.listener.execute(this::listen);
@@ -82,7 +82,8 @@ public class Chat {
                 + ":" + session.getId().toString();
         byte[] keys = sessionData.getBytes(StandardCharsets.UTF_8);
         byte[] packed = Envelope.fromByte(keys).pack(buddy.getPublicKey());
-        MessageStream ms = new MessageStream(serverStream, this.identity, buddy, "Open");
+        MessageStream ms = new MessageStream(serverStream, this.identity,
+                buddy, "Open");
         ms.writeBytes(packed);
         this.openedSessions.add(session);
         LOG.info("NEW SESSION: " + session.getId() + " ALG:" + session.getProcess().getSymetricKey().getSymetric());
@@ -104,6 +105,10 @@ public class Chat {
         while (true) {
             Message message = this.messageStream.readMessage();
             //LOG.info("New Message(" + this.identity.getId() + "): " + message.toString());
+            if (!HashedMessage.from(message).verify(message.getSignature())) {
+                LOG.warning("Wrong Signature: " + message.toString());
+                continue;
+            }
 
             switch (message.getCommand()) {
 

@@ -11,9 +11,10 @@ public class Message implements Serializable {
 
     private final String command;
     private final Long from;
-    private Long to;
-    private byte[] body;
-    private byte[] signature;
+    private Long to = null;
+    private byte[] body = null;
+    private byte[] signature = null;
+    private String hashAlg = null;
 
     public Message(String command, Long from) {
         this.command = command;
@@ -59,11 +60,19 @@ public class Message implements Serializable {
         this.signature = signature;
     }
 
+    public String getHashAlg() {
+        return hashAlg;
+    }
+
+    public void setHashAlg(String hashAlg) {
+        this.hashAlg = hashAlg;
+    }
+
     @Override
     public String toString() {
         return "Message{" + "command=" + command + ", from=" + from + ", to="
                 + to + ", body=" + byteArrayString(body) + ", signature="
-                + byteArrayString(signature) + '}';
+                + byteArrayString(signature) + " hashAlg=" + hashAlg + '}';
     }
 
     private String byteArrayString(byte[] byteArray) {

@@ -1,52 +1,53 @@
-//package org.nem.chat.protocol.service;
-//
-//import java.nio.charset.StandardCharsets;
-//import java.security.Key;
-//import java.security.MessageDigest;
-//import java.util.Base64;
-//import javax.crypto.Cipher;
-//import org.nem.chat.protocol.model.Message;
-//
-///**
-// *
-// * @author Nemanja Marjanović
-// */
-//public class HashedMessage {
-//
-//    private final byte[] hash;
-//
-//    public HashedMessage(final Message message) {
-//        try {
-//            MessageDigest messageDigest = MessageDigest.getInstance("MD5");
-//            this.hash = messageDigest.digest(Message.BYTER.toBytes(message));
-//        } catch (Exception exception) {
-//            throw new RuntimeException(exception.getMessage());
-//        }
-//    }
-//
-//    public byte[] signature(final Key key) {
-//        try {
-//            Cipher cipher = Cipher.getInstance("RSA");
-//            cipher.init(Cipher.ENCRYPT_MODE, key);
-//            return Base64.getEncoder().encode(cipher.doFinal(hash));
-//        } catch (Exception exception) {
-//            throw new RuntimeException(exception.getMessage());
-//        }
-//    }
-//
-//    public boolean verifySignature(final Key key, final byte[] signature) {
-//        try {
-//            Cipher cipher = Cipher.getInstance("RSA");
-//            cipher.init(Cipher.DECRYPT_MODE, key);
-//            byte[] decoded = cipher.doFinal(Base64.getDecoder().decode(signature));
-//            return byteToString(decoded).equals(byteToString(this.hash));
-//        } catch (Exception exception) {
-//            throw new RuntimeException(exception.getMessage());
-//        }
-//    }
-//
-//    private String byteToString(final byte[] byteArray) {
-//        return new String(byteArray, StandardCharsets.UTF_8);
-//    }
-//
-//}
+package org.nem.chat.protocol.service;
+
+import java.security.MessageDigest;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Random;
+import org.nem.chat.protocol.model.ByteSerializer;
+import org.nem.chat.protocol.model.Message;
+
+/**
+ *
+ * @author Nemanja Marjanović
+ */
+public class HashedMessage {
+
+    private final byte[] hash;
+    private String alg;
+    private final ByteSerializer<Message> byter = new ByteSerializer<>();
+
+    private HashedMessage(final Message message) {
+        try {
+            if (message.getHashAlg() != null) {
+                this.alg = message.getHashAlg();
+            } else {
+                this.alg = (new Random().nextBoolean()) ? "MD5" : "SHA-256";
+            }
+            MessageDigest messageDigest = MessageDigest.getInstance(this.alg);
+            Message m = new Message(message.getCommand(), message.getFrom(),
+                    message.getTo(), message.getBody());
+            byte[] hashed = messageDigest.digest(byter.toBytes(m));;
+            this.hash = Base64.getEncoder().encode(hashed);
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            throw new RuntimeException(exception.getMessage());
+        }
+    }
+
+    public static HashedMessage from(final Message message) {
+        return new HashedMessage(message);
+    }
+
+    public boolean verify(final byte[] signature) {
+        return Arrays.equals(this.hash, signature);
+    }
+
+    public String alg() {
+        return this.alg;
+    }
+
+    public byte[] signature() {
+        return this.hash;
+    }
+}

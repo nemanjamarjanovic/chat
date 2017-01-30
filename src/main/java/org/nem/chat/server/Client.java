@@ -15,10 +15,10 @@ import org.nem.chat.crypto.service.SymetricProcess;
 import org.nem.chat.protocol.model.ByteSerializer;
 import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.User;
-import org.nem.chat.transport.AsymetricCryptedStream;
-import org.nem.chat.transport.MessageStream;
-import org.nem.chat.transport.PlainTextStream;
-import org.nem.chat.transport.SymetricCryptedStream;
+import org.nem.chat.transport.model.AsymetricCryptedStream;
+import org.nem.chat.transport.model.MessageStream;
+import org.nem.chat.transport.model.PlainTextStream;
+import org.nem.chat.transport.model.SymetricCryptedStream;
 
 /**
  *

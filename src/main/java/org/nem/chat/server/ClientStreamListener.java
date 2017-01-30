@@ -7,7 +7,8 @@ import org.nem.chat.protocol.model.ByteSerializer;
 import org.nem.chat.protocol.model.Message;
 import org.nem.chat.protocol.model.User;
 import org.nem.chat.protocol.model.UserList;
-import org.nem.chat.transport.MessageStream;
+import org.nem.chat.protocol.service.HashedMessage;
+import org.nem.chat.transport.model.MessageStream;
 
 /**
  *
@@ -15,7 +16,7 @@ import org.nem.chat.transport.MessageStream;
  */
 public class ClientStreamListener {
 
-    //private static final Logger LOG = Logger.getLogger("SERVER");
+    private static final Logger LOG = Logger.getLogger("SERVER");
     private final User user;
     private final MessageStream messageStream;
 
@@ -29,6 +30,11 @@ public class ClientStreamListener {
         Message message = this.messageStream.readMessage();
         //LOG.info("Server New Message(" + user.getId() + "): " + message.toString());
 
+        if (!HashedMessage.from(message).verify(message.getSignature())) {
+            LOG.warning("Wrong Signature: " + message.toString());
+            return;
+        }
+
         switch (message.getCommand()) {
             case "Users":
                 List<User> list = ChatServer.CLIENTS.keySet().stream()
@@ -37,7 +43,7 @@ public class ClientStreamListener {
                         .filter(u -> u.getName() != null)
                         .collect(Collectors.toList());
                 byte[] b2 = new ByteSerializer<>().toBytes(new UserList(list));
-                Message response = new Message("Users", null, null, b2);
+                Message response = new Message("Users", 0l, null, b2);
                 this.messageStream.writeMessage(response);
                 break;
             case "End":
@@ -50,7 +56,7 @@ public class ClientStreamListener {
                 ChatServer.CLIENTS.get(message.getTo()).send(message);
                 break;
             default:
-                //LOG.warning("Wrong Command!");
+                LOG.warning("Wrong Command!");
                 break;
         }
     }

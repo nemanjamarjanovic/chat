@@ -5,10 +5,10 @@ import java.util.logging.Logger;
 import org.nem.chat.crypto.model.AsymetricKey;
 import org.nem.chat.crypto.service.SymetricProcess;
 import org.nem.chat.protocol.model.ByteSerializer;
-import org.nem.chat.transport.AsymetricCryptedStream;
-import org.nem.chat.transport.PlainTextStream;
-import org.nem.chat.transport.SymetricCryptedStream;
-import org.nem.chat.transport.TransportStream;
+import org.nem.chat.transport.model.AsymetricCryptedStream;
+import org.nem.chat.transport.model.PlainTextStream;
+import org.nem.chat.transport.model.SymetricCryptedStream;
+import org.nem.chat.transport.model.TransportStream;
 
 /**
  *
