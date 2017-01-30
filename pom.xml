@@ -7,7 +7,7 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>chat</groupId>
     <artifactId>chat</artifactId>
-    <version>0.1</version>
+    <version>1</version>
     <packaging>jar</packaging>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -41,11 +41,17 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
     </dependencies>
     
     <build>
+        <finalName>chat</finalName>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>3.0.0</version>
                 <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.nem.chat.Start</mainClass>
+                        </manifest>
+                    </archive>
                     <descriptorRefs>
                         <descriptorRef>jar-with-dependencies</descriptorRef>
                     </descriptorRefs>
